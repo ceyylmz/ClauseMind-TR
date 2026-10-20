@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>ClauseMind TR - Akıllı Sözleşme Asistanı</title>
+    <style>
+        :root {
+            --bordo: #722F37;
+            --bordo-hover: #521420;
+            --antrasit: #2B2D37;
+            --antrasit-light: #3A3D4A;
+            --arkaplan: #F4F4F6;
+            --beyaz: #FFFFFF;
+            --kirmizi-vurgu: #D9534F;
+            --yesil-vurgu: #2E7D32;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--arkaplan);
+            color: var(--antrasit);
+            max-width: 780px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .container {
+            background-color: var(--beyaz);
+            padding: 35px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(43, 45, 55, 0.08);
+            border-top: 5px solid var(--bordo);
+        }
+
+        h2 { color: var(--antrasit); margin-top: 0; font-size: 26px; }
+        p.subtitle { color: #666; font-size: 14px; margin-bottom: 20px; }
+
+        textarea {
+            width: 100%; height: 140px; padding: 14px; box-sizing: border-box;
+            border-radius: 8px; border: 1px solid #D1D1D6; font-size: 14px;
+            background-color: #FAFAFC; resize: vertical;
+        }
+        textarea:focus { outline: none; border-color: var(--bordo); background-color: var(--beyaz); }
+
+        button {
+            background-color: var(--bordo); color: var(--beyaz); border: none;
+            padding: 12px 24px; font-size: 15px; font-weight: 600; cursor: pointer;
+            border-radius: 8px; margin-top: 12px; transition: background-color 0.2s;
+        }
+        button:hover { background-color: var(--bordo-hover); }
+
+        #result {
+            margin-top: 25px; padding: 20px; background-color: #FAFAFC;
+            border-radius: 8px; border: 1px solid #E4E4E9; display: none;
+        }
+
+        .card {
+            background: white; padding: 15px; border-radius: 6px;
+            border: 1px solid #E0E0E0; margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 13px; font-weight: 700; text-transform: uppercase;
+            color: var(--antrasit-light); letter-spacing: 0.5px; margin-bottom: 6px;
+        }
+
+        .highlighted-box {
+            padding: 12px; background: #FFF; border: 1px dashed #CCC;
+            border-radius: 6px; line-height: 1.6; font-size: 14px;
+        }
+
+        .flag { background-color: #FFCDD2; color: #B71C1C; font-weight: bold; padding: 2px 5px; border-radius: 3px; }
+
+        .badge-cite {
+            display: inline-block; background: #E8EAF6; color: #1A237E;
+            padding: 4px 8px; border-radius: 4px; font-size: 12px; margin: 3px; font-weight: 600;
+        }
+
+        .fix-box {
+            background-color: #E8F5E9; border-left: 4px solid var(--yesil-vurgu);
+            padding: 12px; color: #1B5E20; font-size: 14px; border-radius: 4px;
+        }
+
+        #riskLevel { font-weight: bold; padding: 4px 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>ClauseMind TR</h2>
+        <p class="subtitle">AI-Native Türkçe Sözleşme ve ToS Analiz Platformu</p>
+        
+        <textarea id="tosText" placeholder="Analiz etmek istediğiniz sözleşme maddesini buraya yapıştırın..."></textarea><br>
+        <button onclick="analyzeText()">Metni Analiz Et</button>
+
+        <div id="result">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin:0;">Analiz Raporu</h3>
+                <div><strong>Risk:</strong> <span id="riskLevel"></span></div>
+            </div>
+
+            <!-- 1. Kırmızı Bayrak Vurgusu -->
+            <div class="card">
+                <div class="card-title">🚩 Metin İçi Riskli Kelime Vurgusu (Red-Flags)</div>
+                <div id="highlightedText" class="highlighted-box"></div>
+            </div>
+
+            <!-- 2. Hukuki Dayanak ve Atıflar -->
+            <div class="card">
+                <div class="card-title">⚖️ İlgili Mevzuat & Kanun Maddeleri</div>
+                <div id="legalCitations"></div>
+            </div>
+
+            <!-- 3. Detaylı Açıklama -->
+            <div class="card">
+                <div class="card-title">📝 İhlal & Risk Değerlendirmesi</div>
+                <div id="explanation" style="font-size:14px; color:#333;"></div>
+            </div>
+
+            <!-- 4. Clause Fixer (Adil Madde Önerisi) -->
+            <div class="card" style="border:none; padding:0;">
+                <div class="card-title">💡 Clause Fixer: Tavsiye Edilen Adil Madde</div>
+                <div id="suggestedFix" class="fix-box"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function analyzeText() {
+            const rawText = document.getElementById('tosText').value.trim();
+            if (!rawText) {
+                alert('Lütfen analiz için bir metin girin!');
+                return;
+            }
+
+            try {
+                const response = await fetch('/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: rawText })
+                });
+
+                const data = await response.json();
+                
+                // Risk seviyesi renklendirmesi
+                const riskSpan = document.getElementById('riskLevel');
+                riskSpan.innerText = data.risk_level + ` (%${Math.round(data.confidence_score * 100)})`;
+                
+                if (data.risk_level.includes("YÜKSEK")) {
+                    riskSpan.style.color = "#D9534F"; riskSpan.style.backgroundColor = "#FDF2F2";
+                } else if (data.risk_level.includes("DÜŞÜK")) {
+                    riskSpan.style.color = "#2E7D32"; riskSpan.style.backgroundColor = "#E8F5E9";
+                } else {
+                    riskSpan.style.color = "#F0AD4E"; riskSpan.style.backgroundColor = "#FEFCE8";
+                }
+
+                // 1. Kırmızı Bayrak Vurgulama
+                let formattedText = rawText;
+                if (data.flagged_words && data.flagged_words.length > 0) {
+                    data.flagged_words.forEach(word => {
+                        const regex = new RegExp(`(${word})`, 'gi');
+                        formattedText = formattedText.replace(regex, `<span class="flag">$1</span>`);
+                    });
+                } else {
+                    formattedText = "<em>Metinde spesifik kısıtlayıcı anahtar kelime bulunamadı.</em>";
+                }
+                document.getElementById('highlightedText').innerHTML = formattedText;
+
+                // 2. Kanun Atıfları
+                const citeDiv = document.getElementById('legalCitations');
+                if (data.legal_citations && data.legal_citations.length > 0) {
+                    citeDiv.innerHTML = data.legal_citations.map(c => `<span class="badge-cite">${c}</span>`).join(' ');
+                } else {
+                    citeDiv.innerHTML = "<span style='font-size:13px; color:#777;'>Eşleşen kanun maddesi yok.</span>";
+                }
+
+                // 3. Açıklama & 4. Clause Fixer
+                document.getElementById('explanation').innerText = data.explanation;
+                document.getElementById('suggestedFix').innerText = data.suggested_fix;
+
+                document.getElementById('result').style.display = 'block';
+            } catch (error) {
+                alert('Sunucuya bağlanırken hata oluştu!');
+            }
+        }
+    </script>
+
+</body>
+</html>
